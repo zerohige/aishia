@@ -1,38 +1,112 @@
-function calculateSeconds() {
-  var daysInput = document.getElementById("days").value;
-  var hoursInput = document.getElementById("hours").value;
-  var minutesInput = document.getElementById("minutes").value;
-
-  // Validasi input agar hanya menerima angka
-  var days = /^\d+$/.test(daysInput) ? parseInt(daysInput) : 0;
-  var hours = /^\d+$/.test(hoursInput) ? parseInt(hoursInput) : 0;
-  var minutes = /^\d+$/.test(minutesInput) ? parseInt(minutesInput) : 0;
-
-  var dayProcess = "Jumlah Hari Hari x 24 x 60 x 60 = " + (days * 24 * 60 * 60).toLocaleString()+" detik";
-  var hourProcess = "Jumlah Jam Jam x 60 x 60 = " + (hours * 60 * 60).toLocaleString()+ " detik"; 
-  var minuteProcess = "Jumlah Menit Menit x 60 = " + (minutes * 60).toLocaleString()+" detik";
-
-  // Menampilkan Proses
-  document.getElementById("day-process").innerHTML = dayProcess.replace("Jumlah Hari", days) ;
-  document.getElementById("hour-process").innerHTML = hourProcess.replace("Jumlah Jam", hours);
-  document.getElementById("minute-process").innerHTML = minuteProcess.replace("Jumlah Menit", minutes);
-
-  var totalSeconds = (days * 24 * 60 * 60) + (hours * 60 * 60) + (minutes * 60);
-  document.getElementById("result").innerHTML = "Total : " + totalSeconds.toLocaleString()+ " Detik";
-  
-  // Menambahkan tombol reset
-  var resetButton = document.createElement("button");
-  resetButton.innerHTML = "Reset";
-  resetButton.onclick = function() {
-    document.getElementById("days").value = "";
-    document.getElementById("hours").value = "";
-    document.getElementById("minutes").value = "";
-    document.getElementById("day-process").innerHTML = "";
-    document.getElementById("hour-process").innerHTML = "";
-    document.getElementById("minute-process").innerHTML = "";
-    document.getElementById("result").innerHTML = "";
-  };
-
-  document.getElementById("reset-container").innerHTML = "";
-  document.getElementById("reset-container").appendChild(resetButton);
+function saveNote() {
+    var note = document.getElementById("noteInput").value;
+    var fileName = prompt("Masukkan nama file (dengan format txt):");
+    if (fileName) {
+        var encryptedNote = RC4Encrypt(note, "yourSecretKey"); 
+        var blob = new Blob([encryptedNote], {type: "text/plain;charset=utf-8"}); 
+        saveAs(blob, fileName); 
+        document.getElementById("message").innerText = "Catatan disimpan sebagai " + fileName; 
+    }
 }
+
+function viewNote() {
+    var fileInput = document.createElement("input"); 
+    fileInput.type = "file"; 
+    fileInput.accept = ".txt"; 
+    fileInput.addEventListener("change", function(event) {
+        var file = event.target.files[0]; 
+        var reader = new FileReader(); 
+        reader.onload = function() { 
+            var encryptedNote = reader.result;
+            var decryptedNote = RC4Decrypt(encryptedNote, "yourSecretKey"); 
+            alert("Pesan yang didekripsi:\n" + decryptedNote); 
+        };
+        reader.readAsText(file); 
+    });
+    fileInput.click(); 
+}
+
+function RC4Encrypt(plaintext, key) {
+    var S = [];
+    var K = [];
+    var ciphertext = '';
+    var keyLength = key.length;
+
+    for (var i = 0; i < 256; i++) {
+        S[i] = i;
+        K[i] = key.charCodeAt(i % keyLength);
+    }
+
+    var j = 0;
+    for (var i = 0; i < 256; i++) {
+        j = (j + S[i] + K[i]) % 256;
+        // Tukar S[i] dan S[j]
+        var temp = S[i];
+        S[i] = S[j];
+        S[j] = temp;
+    }
+
+    var i = 0;
+    var j = 0;
+    for (var k = 0; k < plaintext.length; k++) {
+        i = (i + 1) % 256;
+        j = (j + S[i]) % 256;
+        var temp = S[i];
+        S[i] = S[j];
+        S[j] = temp;
+        var keystreamIndex = (S[i] + S[j]) % 256;
+        var keystreamChar = S[keystreamIndex];
+        ciphertext += String.fromCharCode(plaintext.charCodeAt(k) ^ keystreamChar);
+    }
+
+    return ciphertext;
+}
+
+function RC4Decrypt(ciphertext, key) {
+    var S = [];
+    var K = [];
+    var plaintext = '';
+    var keyLength = key.length;
+
+    for (var i = 0; i < 256; i++) {
+        S[i] = i;
+        K[i] = key.charCodeAt(i % keyLength);
+    }
+
+    var j = 0;
+    for (var i = 0; i < 256; i++) {
+        j = (j + S[i] + K[i]) % 256;
+        var temp = S[i];
+        S[i] = S[j];
+        S[j] = temp;
+    }
+
+
+    var i = 0;
+    var j = 0;
+    for (var k = 0; k < ciphertext.length; k++) {
+        i = (i + 1) % 256;
+        j = (j + S[i]) % 256;
+        var temp = S[i];
+        S[i] = S[j];
+        S[j] = temp;
+        var keystreamIndex = (S[i] + S[j]) % 256;
+        var keystreamChar = S[keystreamIndex];
+        plaintext += String.fromCharCode(ciphertext.charCodeAt(k) ^ keystreamChar);
+    }
+
+    return plaintext;
+}
+
+var saveAs = function(blob, filename) {
+    var link = document.createElement("a");
+    if (typeof link.download === "string") {
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } else {
+        window.open(blob);
+    }
+};
